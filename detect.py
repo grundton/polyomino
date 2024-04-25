@@ -27,6 +27,7 @@ def check_limits(value, lower_lim, upper_lim):
 
 freq_array = np.zeros((11, 7))
 
+
 for i in range(0,7):
     # keep frequencies in limits
     freq_array[0, i] = start_freq * ((5**i)/(4**i))
@@ -36,6 +37,8 @@ for j in range(0, 11):
     for i in range(0,7):
         freq_array[j, i] = freq_array[0, i] * ((3**j)/(2**j))
         freq_array[j, i] = check_limits(freq_array[j, i], lower_limit, upper_limit)
+
+print(freq_array)
 
 OSC_HOST ="127.0.0.1" #127.0.0.1 is for same computer
 OSC_PORT = 8000

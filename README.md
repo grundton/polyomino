@@ -38,3 +38,5 @@ In a new terminal window, start the csound script. Make sure to find out which -
 ```
 csound polyomino.csd
 ```
+
+The python script does not send the pitch information automatically. To update the pitch information, press the 'x' key while the python window is active.
