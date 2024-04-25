@@ -34,7 +34,7 @@ To start the python script:
 python detect.py
 ```
 
-In a new terminal window, start the csound script. Make sure to find out which -odac opation (line 3) you want to use. If you start the script once without the python script running, you can see your options.
+In a new terminal window, start the csound script. Make sure to find out which -odac option (line 3) you want to use. If you start the script once without the python script running, you can see your options.
 ```
 csound polyomino.csd
 ```
