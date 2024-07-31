@@ -7,7 +7,7 @@ import serial
 import math
 import time
 
-c_freq = 261.6 # position 24
+c_freq = 261.63 # position 24
 c_midi = 60
 start_freq = c_freq*(125*8)/(27*64) #position 0
 start_midi = c_midi - 9
@@ -31,16 +31,11 @@ def closest_octave(var, fix):
     var_m = freq_to_midi(var)
     fix_m = freq_to_midi(fix)
 
-    # check if var_m is on right side of the symmetrical 1 octave boundary around fix_m
     if fix_m - var_m < -6:
-        #print("right side, try with half the frequency")
         return closest_octave(var/2, fix)
-    # check if var_m is on left side of the symmetrical 1 octave boundary around fix_m
     if fix_m - var_m > 6:
-        #print("left_side, try with double the frequency")
         return closest_octave(var*2, fix)
     else:
-        #print("close enough")
         return midi_to_freq(var_m)
 
 def check_limits(value, lower_lim, upper_lim):
@@ -70,13 +65,19 @@ for i in range(0,7):
     freq_array[0, i] = start_freq * ((4**i)/(5**i))
     freq_array[0, i] = check_limits(freq_array[0, i], lower_limit, upper_limit)
     midi_array[0, i] = (start_midi - 4*i)
-    
-   
 
+freq_array = np.fliplr(freq_array)
+midi_array = np.fliplr(midi_array)
 
+print("\n")
+print("FREQ 5limit 1 row ")
+print("\n")
 print(np.round(freq_array, 2))
-print(np.round(midi_array, 2))
-print("\n\n\n\n\n\n\n\n\n\n")
+print("\n")
+print("FREQ 12TET 1 row ")
+print("\n")
+print(np.round(midi_to_freq(midi_array), 2))
+print("\n")
 
 for j in range(0, 11):
     for i in range(0,7):
@@ -84,19 +85,27 @@ for j in range(0, 11):
         freq_array[j, i] = check_limits(freq_array[j, i], lower_limit, upper_limit)
         midi_array[j, i] = midi_array[0, i] + 7*j
         
-
-
-print("\n\n\n\n\n\n\n\n\n\n")
+print("\n")
+print("FREQ 5limit full ")
+print("\n")
 print(np.round(freq_array, 2))
-print(np.round(midi_array, 2))
-print("\n\n\n\n\n\n\n\n\n\n")
+print("\n")
+print("FREQ 12TET full before matching ")
+print("\n")
+print(np.round(midi_to_freq(midi_array), 2))
+print("\n")
 
 for i in range(0, 7):
     for j in range(0, 11):
         midi_freq_array[j, i] = closest_octave(midi_to_freq(midi_array[j, i]), freq_array[j, i])
 
-print("DEVIATION MIDI TO 5-LIM")
-print(freq_array - midi_freq_array)
+print("FREQ 12TET full & matched")
+print("\n")
+print(np.round(midi_freq_array, 2))
+print("\n")
+
+print("DEVIATION 12tet TO 5-LIM")
+print(np.round(freq_array - midi_freq_array, 2))
 
 OSC_HOST ="127.0.0.1" #127.0.0.1 is for same computer
 OSC_PORT = 8000
@@ -116,8 +125,6 @@ slider2_array = [0] * len_ma
 button_press = False
 
 
-#height = 900
-#width = 700
 height = 800
 width = 1300
 
@@ -151,6 +158,14 @@ running_index = 0
 old_morph_factor = 0
 old_volume = 0
 
+try:
+    momentary_reading = ser.readline(100).decode('utf-8')
+    print("Serial connection established")
+except ValueError as e:
+    print("ValueError, check serial output of microcontroller")
+except AttributeError:
+    print("Probably not connected to serial!")
+
 # VIDEO FEED
 cap = cv2.VideoCapture(0)
 while cap.isOpened():
@@ -165,7 +180,7 @@ while cap.isOpened():
     frame = cv2.flip(frame, 0)
     frame = cv2.flip(frame, 1)
 
-    #convert to gray
+    # convert to gray
     bw_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
 
@@ -176,24 +191,21 @@ while cap.isOpened():
         part3, _ = part3.split("\r")
         button_press = part3.lower() in ["true"]
     except ValueError as e:
-        print("error!")
+        
         part1, part2, part3 = slider1, slider2, button_press
     except AttributeError:
-        print("error! Probably not connected to serial!")
         part1, part2, part3 = slider1, slider2, button_press
     
     
     # mapping sliders to send to csound
     # max at 3V = 53262 
-    # +-1000 for headroom = [0.1 - 0.9]
+    # leaving some headroom, playable range = [0.05 - 0.95]
     slider1_array[running_index] = (min(max((slider1/53262), 0.05), 0.95) - 0.05)/0.9
     slider2_array[running_index] =  (min(max((slider2/53262), 0.05), 0.95) - 0.05)/0.9
     
 
     morph_factor = round(mean(slider2_array), 2)
-    #morph_factor = 1
     volume = round(mean(slider1_array), 2)
-    #volume = 0.5 #max(min(mean(slider1_array), 1), 0)
     if morph_factor != old_morph_factor:
         OSC_CLIENT.send_message(ruta_morph, [float(morph_factor)])
         old_morph_factor = morph_factor
@@ -202,32 +214,25 @@ while cap.isOpened():
         old_volume = volume
     
 
-    #flatten freq_array for easier acces + have a list from which to remove elements
+    # flatten freq_array for easier acces + have a list from which to remove elements
     flat_frequencies = freq_array.flatten()
     flat_midi_frequencies = midi_freq_array.flatten()
     
-  
+    # detect fiducial markers from black-and-white frame
     results = at_detector.detect(bw_frame)
     result_tags = [r.tag_id for r in results]
     
+    # draw contour around fiducial markers and add ids
     for result in results:
-
         a = np.int32(result.corners)
         frame = cv2.drawContours(frame, [a], 0, (0,0,255), 2)
         frame = cv2.putText(frame, str(result.tag_id), (int(result.center[0]),int(result.center[1])), cv2.FONT_HERSHEY_SIMPLEX ,  
                    1, (0, 255, 0), 1, cv2.LINE_AA)
     
-    # values of moving averages of slider1 and slider2
-    frame = cv2.putText(frame, "MF:  "+str(round(morph_factor, 2)),(100,100), cv2.FONT_HERSHEY_SIMPLEX ,  
-                   1, (0, 255, 0), 1, cv2.LINE_AA)
-    frame = cv2.putText(frame, "vol: "+str(round(volume, 2)), (100,150), cv2.FONT_HERSHEY_SIMPLEX ,  
-                   1, (0, 255, 0), 1, cv2.LINE_AA)
     cv2.imshow('Image Feed', frame)
     
-    
-    # SEND OSC 
-    #if cv2.waitKey(10) & 0xFF == ord('x'):
-    if button_press:
+    # SEND OSC if button is pressed or 'x' key is pressed    
+    if button_press or (cv2.waitKey(10) & 0xFF == ord('x')):                           
         print("press")
         for indx, (freq, midi_freq) in enumerate(zip(flat_frequencies, flat_midi_frequencies)):
             if indx in result_tags:
@@ -237,8 +242,6 @@ while cap.isOpened():
                 OSC_CLIENT.send_message(ruta_5lim, [float(indx), float(freq)])
                 OSC_CLIENT.send_message(ruta_12TET, [float(indx), float(midi_freq)])
 
-                
-        
 
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break

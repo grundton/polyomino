@@ -100,7 +100,6 @@ instr 2
 	k_volume init 0.5 ; Volume-factor. Scales between 0 and 1.
 
 
-	
 	; Attack time.
 	iattack = 1
 	; Decay time.
@@ -108,12 +107,12 @@ instr 2
 	; Sustain level.
 	isustain = 0.6
 	; Release time.
-	irelease = 3
+	irelease = 2
 	aenv madsr iattack, idecay, isustain, irelease
 	;kenv	linsegr	0, 0.5, 0.1, 3, 0
 	;asig oscils 0.1, i_freq, 0, 2
 
-	iRvbSendAmt  =         0.3  
+	iRvbSendAmt  =         0.1  
 	
 	;;Assign Values + Smoothing
 	k_morph portk gk_morph, 0.05
@@ -123,66 +122,44 @@ instr 2
 
 	kModsigLeft oscil 0.002, 0.101
 	kModsigRight oscil 0.002, 0.11
+
 	asigLeft vco2 1, k_freq*(1+kModsigLeft), 2, 0.5
 	asigRight vco2 1, k_freq*(1+kModsigRight), 2, 0.5
 
+	; Lowpass Filter
+	asigLeft    moogladder   asigLeft, kcf, 0.9 ; filter audio signal
+	asigRight    moogladder   asigRight, kcf, 0.9 ; filter audio signal
+
 	outs k_vol*(asigLeft*aenv*0.1)*(1-iRvbSendAmt), k_vol*(asigRight*aenv*0.1)*(1-iRvbSendAmt)
 	gaRvbSend    =         gaRvbSend + k_vol*((asigLeft+asigLeft)*0.5 * iRvbSendAmt)
-ex:
-	prints "."
 
-endin
-
-instr 3
-	kFadout   init      1
-	krel      release   ;returns "1" if last k-cycletu
-	if krel == 1 && p3 > 0 then ;if so, and negative p3:
-		xtratim   2      
-		kFadout   linsegr    1, 2, 0 ;and make fade out
-	endif
-	
-	i_freq = p4 	; either 0 or a specific frequency. 
-	
-	;
-	;kenv	linsegr	0, 0.5, 0.1, 3, 0
-	;asig oscils 0.1, i_freq, 0, 2
-	asig vco2 1, i_freq
-
-	outs asig*0.1*kFadout, asig*0.1*kFadout
 
 endin
 
 
-instr 5 ; reverb - always on
-kroomsize    init      0.9          ; room size (range 0 to 1)
+
+
+instr 99 ; reverb - always on
+kroomsize    init      0.7          ; room size (range 0 to 1)
 kHFDamp      init      0.3           ; high freq. damping (range 0 to 1)
 ; create reverberated version of input signal (note stereo input and output)
 aRvbL,aRvbR  freeverb  gaRvbSend, gaRvbSend,kroomsize,kHFDamp
-             outs      aRvbL, aRvbR ; send audio to outputs
+             outs      0.5* aRvbL, 0.5*aRvbR ; send audio to outputs
              clear     gaRvbSend    ; clear global audio variable
-endin
-
-; Define an instrument
-instr 9
-    ; p4 is the frequency, p5 is the amplitude
-    a1 oscil p5, p4, 1  ; Generate a sine wave using oscil opcode
-    outs a1, a1         ; Output the sound to both stereo channels
 endin
 
 
 </CsInstruments>
-<CsScore>
-f1 0 4096 10 1   
- 
+<CsScore> 
+; Test tone 
 i2 0 1 200 202
-;i2 0.2 0.8 400 
-;i2 0.4 0.6 600 
-;i2 0.6 0.4 800 
 
-;i9 0 2 440 0.5
-
-i1 1 3600 
-i11 1 3600
+; OSC Voice handling
+i1 0 3600 
+; OSC Morph and Volume
+i11 0 3600
+; Reverb
+i99 0 3600
 
 </CsScore>
 </CsoundSynthesizer>
